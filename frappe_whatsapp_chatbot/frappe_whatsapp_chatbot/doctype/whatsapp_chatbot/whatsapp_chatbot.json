@@ -1,0 +1,233 @@
+{
+    "actions": [],
+    "allow_rename": 0,
+    "creation": "2024-01-01 00:00:00.000000",
+    "doctype": "DocType",
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "field_order": [
+        "enabled",
+        "column_break_1",
+        "whatsapp_account",
+        "process_all_accounts",
+        "section_break_responses",
+        "default_response",
+        "section_break_business_hours",
+        "business_hours_only",
+        "column_break_bh",
+        "business_start_time",
+        "business_end_time",
+        "out_of_hours_message",
+        "section_break_ai",
+        "enable_ai",
+        "ai_provider",
+        "ai_api_key",
+        "column_break_ai",
+        "ai_model",
+        "ai_max_tokens",
+        "ai_temperature",
+        "ai_system_prompt",
+        "section_break_session",
+        "session_timeout_minutes",
+        "column_break_session",
+        "log_conversations",
+        "section_break_exclusions",
+        "excluded_numbers"
+    ],
+    "fields": [
+        {
+            "default": "0",
+            "fieldname": "enabled",
+            "fieldtype": "Check",
+            "label": "Enabled",
+            "description": "Enable or disable the chatbot globally"
+        },
+        {
+            "fieldname": "column_break_1",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "whatsapp_account",
+            "fieldtype": "Link",
+            "label": "WhatsApp Account",
+            "options": "WhatsApp Account",
+            "description": "Default WhatsApp account for chatbot responses"
+        },
+        {
+            "default": "1",
+            "fieldname": "process_all_accounts",
+            "fieldtype": "Check",
+            "label": "Process All Accounts",
+            "description": "Process messages from all WhatsApp accounts"
+        },
+        {
+            "fieldname": "section_break_responses",
+            "fieldtype": "Section Break",
+            "label": "Default Responses"
+        },
+        {
+            "fieldname": "default_response",
+            "fieldtype": "Small Text",
+            "label": "Default Response",
+            "description": "Message sent when no keyword or flow matches",
+            "default": "Sorry, I didn't understand that. Please try again or type 'help' for assistance."
+        },
+        {
+            "fieldname": "section_break_business_hours",
+            "fieldtype": "Section Break",
+            "label": "Business Hours",
+            "collapsible": 1
+        },
+        {
+            "default": "0",
+            "fieldname": "business_hours_only",
+            "fieldtype": "Check",
+            "label": "Respond Only During Business Hours"
+        },
+        {
+            "fieldname": "column_break_bh",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "business_start_time",
+            "fieldtype": "Time",
+            "label": "Business Start Time",
+            "default": "09:00:00",
+            "depends_on": "eval:doc.business_hours_only"
+        },
+        {
+            "fieldname": "business_end_time",
+            "fieldtype": "Time",
+            "label": "Business End Time",
+            "default": "18:00:00",
+            "depends_on": "eval:doc.business_hours_only"
+        },
+        {
+            "fieldname": "out_of_hours_message",
+            "fieldtype": "Small Text",
+            "label": "Out of Hours Message",
+            "depends_on": "eval:doc.business_hours_only",
+            "default": "Thank you for your message. Our business hours are Monday-Friday, 9 AM - 6 PM. We'll respond to your message during business hours."
+        },
+        {
+            "fieldname": "section_break_ai",
+            "fieldtype": "Section Break",
+            "label": "AI Configuration (Optional)",
+            "collapsible": 1
+        },
+        {
+            "default": "0",
+            "fieldname": "enable_ai",
+            "fieldtype": "Check",
+            "label": "Enable AI Responses",
+            "description": "Use AI to generate responses when no keyword/flow matches"
+        },
+        {
+            "fieldname": "ai_provider",
+            "fieldtype": "Select",
+            "label": "AI Provider",
+            "options": "\nOpenAI\nAnthropic\nCustom",
+            "depends_on": "eval:doc.enable_ai"
+        },
+        {
+            "fieldname": "ai_api_key",
+            "fieldtype": "Password",
+            "label": "AI API Key",
+            "depends_on": "eval:doc.enable_ai"
+        },
+        {
+            "fieldname": "column_break_ai",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "ai_model",
+            "fieldtype": "Data",
+            "label": "AI Model",
+            "depends_on": "eval:doc.enable_ai",
+            "default": "gpt-4o-mini",
+            "description": "Model name (e.g., gpt-4o-mini, claude-3-haiku-20240307)"
+        },
+        {
+            "fieldname": "ai_max_tokens",
+            "fieldtype": "Int",
+            "label": "Max Tokens",
+            "default": 500,
+            "depends_on": "eval:doc.enable_ai"
+        },
+        {
+            "fieldname": "ai_temperature",
+            "fieldtype": "Float",
+            "label": "Temperature",
+            "default": 0.7,
+            "depends_on": "eval:doc.enable_ai",
+            "description": "0 = deterministic, 1 = creative"
+        },
+        {
+            "fieldname": "ai_system_prompt",
+            "fieldtype": "Text",
+            "label": "AI System Prompt",
+            "depends_on": "eval:doc.enable_ai",
+            "default": "You are a helpful customer service assistant. Be concise, friendly, and professional. If you don't know something, say so and offer to connect the user with a human agent."
+        },
+        {
+            "fieldname": "section_break_session",
+            "fieldtype": "Section Break",
+            "label": "Session Settings"
+        },
+        {
+            "fieldname": "session_timeout_minutes",
+            "fieldtype": "Int",
+            "label": "Session Timeout (Minutes)",
+            "default": 30,
+            "description": "Time before an inactive conversation flow times out"
+        },
+        {
+            "fieldname": "column_break_session",
+            "fieldtype": "Column Break"
+        },
+        {
+            "default": "1",
+            "fieldname": "log_conversations",
+            "fieldtype": "Check",
+            "label": "Log Conversations",
+            "description": "Log all chatbot conversations for analytics"
+        },
+        {
+            "fieldname": "section_break_exclusions",
+            "fieldtype": "Section Break",
+            "label": "Excluded Numbers",
+            "collapsible": 1
+        },
+        {
+            "fieldname": "excluded_numbers",
+            "fieldtype": "Table",
+            "label": "Excluded Numbers",
+            "options": "WhatsApp Excluded Number",
+            "description": "Phone numbers that should not receive automated responses"
+        }
+    ],
+    "index_web_pages_for_search": 1,
+    "issingle": 1,
+    "links": [],
+    "modified": "2024-01-01 00:00:00.000000",
+    "modified_by": "Administrator",
+    "module": "Frappe WhatsApp Chatbot",
+    "name": "WhatsApp Chatbot",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "create": 1,
+            "delete": 1,
+            "email": 1,
+            "print": 1,
+            "read": 1,
+            "role": "System Manager",
+            "share": 1,
+            "write": 1
+        }
+    ],
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": [],
+    "track_changes": 1
+}

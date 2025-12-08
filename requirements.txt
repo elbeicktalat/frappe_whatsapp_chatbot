@@ -1,0 +1,5 @@
+# frappe_whatsapp_chatbot requirements
+
+# Optional AI dependencies (install separately if needed)
+# openai>=1.0.0
+# anthropic>=0.18.0

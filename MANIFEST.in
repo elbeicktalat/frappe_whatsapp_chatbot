@@ -1,0 +1,18 @@
+include MANIFEST.in
+include requirements.txt
+include *.json
+include *.md
+include *.py
+include *.txt
+recursive-include frappe_whatsapp_chatbot *.css
+recursive-include frappe_whatsapp_chatbot *.csv
+recursive-include frappe_whatsapp_chatbot *.html
+recursive-include frappe_whatsapp_chatbot *.ico
+recursive-include frappe_whatsapp_chatbot *.js
+recursive-include frappe_whatsapp_chatbot *.json
+recursive-include frappe_whatsapp_chatbot *.md
+recursive-include frappe_whatsapp_chatbot *.png
+recursive-include frappe_whatsapp_chatbot *.py
+recursive-include frappe_whatsapp_chatbot *.svg
+recursive-include frappe_whatsapp_chatbot *.txt
+recursive-exclude frappe_whatsapp_chatbot *.pyc
