@@ -1,6 +1,13 @@
-# Frappe WhatsApp Chatbot
+<p align="center">
+  <img src="docs/assets/logo.svg" alt="Frappe WhatsApp Chatbot" width="150">
+</p>
 
-A comprehensive chatbot solution for Frappe WhatsApp integration. Supports keyword-based replies, multi-step conversation flows with dynamic scripting, and optional AI-powered responses.
+<h1 align="center">Frappe WhatsApp Chatbot</h1>
+
+<p align="center">
+A comprehensive chatbot solution for Frappe WhatsApp integration.<br>
+Supports keyword-based replies, multi-step conversation flows with dynamic scripting, and optional AI-powered responses.
+</p>
 
 ## Features
 

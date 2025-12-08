@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="bubbleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#25D366;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#128C7E;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="robotGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A90A4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2C5F6E;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Chat bubble shape -->
+  <path d="M 40 30
+           Q 40 15, 55 15
+           L 145 15
+           Q 160 15, 160 30
+           L 160 110
+           Q 160 125, 145 125
+           L 80 125
+           L 55 155
+           L 60 125
+           L 55 125
+           Q 40 125, 40 110
+           Z"
+        fill="url(#bubbleGradient)" />
+
+  <!-- Robot face circle -->
+  <circle cx="100" cy="70" r="40" fill="url(#robotGradient)" />
+
+  <!-- Robot eyes -->
+  <circle cx="85" cy="62" r="8" fill="#fff" />
+  <circle cx="115" cy="62" r="8" fill="#fff" />
+  <circle cx="87" cy="64" r="4" fill="#1a1a2e" />
+  <circle cx="117" cy="64" r="4" fill="#1a1a2e" />
+
+  <!-- Robot smile -->
+  <path d="M 80 82 Q 100 98, 120 82"
+        stroke="#fff"
+        stroke-width="4"
+        stroke-linecap="round"
+        fill="none" />
+
+  <!-- Robot antenna -->
+  <line x1="100" y1="30" x2="100" y2="18"
+        stroke="#2C5F6E"
+        stroke-width="4"
+        stroke-linecap="round" />
+  <circle cx="100" cy="14" r="6" fill="#25D366" />
+
+  <!-- Small chat dots indicating typing/activity -->
+  <circle cx="55" cy="165" r="5" fill="#25D366" opacity="0.6" />
+  <circle cx="70" cy="170" r="4" fill="#25D366" opacity="0.4" />
+  <circle cx="82" cy="173" r="3" fill="#25D366" opacity="0.2" />
+
+  <!-- Flow arrows indicating automation -->
+  <g transform="translate(140, 140)">
+    <path d="M 0 0 L 20 0 L 15 -5 M 20 0 L 15 5"
+          stroke="#128C7E"
+          stroke-width="3"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          fill="none" />
+    <path d="M 25 10 L 45 10 L 40 5 M 45 10 L 40 15"
+          stroke="#128C7E"
+          stroke-width="3"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          fill="none" />
+  </g>
+</svg>

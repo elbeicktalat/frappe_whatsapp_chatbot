@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.svg" alt="Logo" width="100">
+</p>
+
 - Getting Started
   - [Introduction](/)
   - [Installation](installation.md)
