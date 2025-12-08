@@ -28,6 +28,8 @@ class AIResponder:
                 return self.openai_response(message, conversation_history)
             elif self.provider == "Anthropic":
                 return self.anthropic_response(message, conversation_history)
+            elif self.provider == "Google":
+                return self.google_response(message, conversation_history)
             elif self.provider == "Custom":
                 return self.custom_response(message, conversation_history)
         except Exception as e:
@@ -207,6 +209,48 @@ class AIResponder:
             return None
         except Exception as e:
             frappe.log_error(f"Anthropic API error: {str(e)}")
+            return None
+
+    def google_response(self, message, conversation_history):
+        """Generate response using Google AI (Gemini)."""
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=self.api_key)
+
+            model = genai.GenerativeModel(
+                model_name=self.model or "gemini-2.0-flash",
+                system_instruction=self.system_prompt
+            )
+
+            # Build conversation history
+            history = []
+            if conversation_history:
+                for msg in conversation_history[-10:]:
+                    role = "user" if msg["direction"] == "Incoming" else "model"
+                    history.append({"role": role, "parts": [msg["message"]]})
+
+            # Add context to the message
+            context = self.build_context()
+            full_message = message
+            if context:
+                full_message = f"Context information:\n{context}\n\nUser message: {message}"
+
+            chat = model.start_chat(history=history)
+            response = chat.send_message(
+                full_message,
+                generation_config=genai.types.GenerationConfig(
+                    max_output_tokens=self.max_tokens,
+                    temperature=self.temperature
+                )
+            )
+
+            return response.text
+
+        except ImportError:
+            frappe.log_error("Google AI library not installed. Run: pip install google-generativeai")
+            return None
+        except Exception as e:
+            frappe.log_error(f"Google AI API error: {str(e)}")
             return None
 
     def custom_response(self, message, conversation_history):

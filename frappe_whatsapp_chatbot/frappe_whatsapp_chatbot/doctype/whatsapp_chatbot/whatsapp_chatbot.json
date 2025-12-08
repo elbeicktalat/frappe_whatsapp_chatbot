@@ -126,7 +126,7 @@
             "fieldname": "ai_provider",
             "fieldtype": "Select",
             "label": "AI Provider",
-            "options": "\nOpenAI\nAnthropic\nCustom",
+            "options": "\nOpenAI\nAnthropic\nGoogle\nCustom",
             "depends_on": "eval:doc.enable_ai"
         },
         {
@@ -145,7 +145,7 @@
             "label": "AI Model",
             "depends_on": "eval:doc.enable_ai",
             "default": "gpt-4o-mini",
-            "description": "Model name (e.g., gpt-4o-mini, claude-3-haiku-20240307)"
+            "description": "Model name (e.g., gpt-4o-mini, claude-3-haiku-20240307, gemini-2.0-flash)"
         },
         {
             "fieldname": "ai_max_tokens",
