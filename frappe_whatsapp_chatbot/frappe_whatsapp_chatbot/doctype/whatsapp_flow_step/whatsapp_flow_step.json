@@ -8,14 +8,15 @@
         "step_name",
         "step_order",
         "message",
+        "input_type",
+        "store_as",
         "message_type",
         "template",
-        "input_type",
+        "response_script",
         "options",
         "buttons",
         "validation_regex",
         "validation_error",
-        "store_as",
         "next_step",
         "conditional_next",
         "skip_condition",
@@ -51,7 +52,7 @@
             "fieldname": "message_type",
             "fieldtype": "Select",
             "label": "Message Type",
-            "options": "Text\nTemplate",
+            "options": "Text\nTemplate\nScript",
             "default": "Text"
         },
         {
@@ -62,11 +63,17 @@
             "depends_on": "eval:doc.message_type=='Template'"
         },
         {
+            "fieldname": "response_script",
+            "fieldtype": "Small Text",
+            "label": "Response Script (for Message Type: Script)",
+            "description": "Python script to generate response. Use 'data' dict for session data, 'frappe' module available. Set 'response' variable with the message to send."
+        },
+        {
             "fieldname": "input_type",
             "fieldtype": "Select",
             "in_list_view": 1,
             "label": "Input Type",
-            "options": "None\nText\nNumber\nEmail\nPhone\nDate\nSelect\nButton",
+            "options": "None\nText\nNumber\nEmail\nPhone\nDate\nSelect",
             "default": "Text",
             "description": "Type of input expected from user"
         },
@@ -81,7 +88,7 @@
             "fieldname": "buttons",
             "fieldtype": "JSON",
             "label": "Buttons",
-            "depends_on": "eval:doc.input_type=='Button'",
+            "hidden": 1,
             "description": "JSON array of buttons: [{\"id\": \"btn_1\", \"title\": \"Button 1\"}]"
         },
         {
@@ -99,6 +106,7 @@
         {
             "fieldname": "store_as",
             "fieldtype": "Data",
+            "in_list_view": 1,
             "label": "Store As",
             "description": "Variable name to store user's input (e.g., user_email)"
         },

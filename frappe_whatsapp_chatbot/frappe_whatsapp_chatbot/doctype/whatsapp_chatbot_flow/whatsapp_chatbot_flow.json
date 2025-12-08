@@ -80,6 +80,7 @@
             "fieldname": "trigger_on_button",
             "fieldtype": "Data",
             "label": "Trigger on Button Payload",
+            "hidden": 1,
             "description": "Button ID that triggers this flow"
         },
         {

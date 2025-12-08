@@ -328,6 +328,13 @@ class FlowEngine:
                 "message_type": "Template"
             }
 
+        if step.message_type == "Script" and step.response_script:
+            script_response = self.run_response_script(step.response_script, session_data, session)
+            if script_response:
+                return script_response
+            # Fall back to message if script returns nothing
+            return message
+
         # Add buttons if defined
         if step.input_type == "Button" and step.buttons:
             buttons = parse_json(step.buttons, [])
@@ -399,23 +406,55 @@ class FlowEngine:
         """Create a document from flow data."""
         try:
             if not flow.create_doctype or not flow.field_mapping:
+                frappe.log_error(
+                    f"create_document: Missing doctype ({flow.create_doctype}) or field_mapping ({flow.field_mapping})",
+                    "WhatsApp Chatbot"
+                )
                 return
 
             # field_mapping might already be a dict (Frappe JSON field) or a string
             mapping = parse_json(flow.field_mapping, {})
+
+            if not mapping:
+                frappe.log_error(
+                    f"create_document: Empty field mapping for flow {flow.name}",
+                    "WhatsApp Chatbot"
+                )
+                return
 
             doc_data = {"doctype": flow.create_doctype}
 
             for field, variable in mapping.items():
                 if variable in data:
                     doc_data[field] = data[variable]
+                else:
+                    frappe.log_error(
+                        f"create_document: Variable '{variable}' not found in session data. Available: {list(data.keys())}",
+                        "WhatsApp Chatbot"
+                    )
+
+            # Check if we have any data besides doctype
+            if len(doc_data) <= 1:
+                frappe.log_error(
+                    f"create_document: No data mapped. Session data: {data}, Mapping: {mapping}",
+                    "WhatsApp Chatbot"
+                )
+                return
 
             doc = frappe.get_doc(doc_data)
             doc.insert(ignore_permissions=True)
             frappe.db.commit()
 
+            frappe.log_error(
+                f"create_document: Successfully created {flow.create_doctype} with data: {doc_data}",
+                "WhatsApp Chatbot Success"
+            )
+
         except Exception as e:
-            frappe.log_error(f"FlowEngine create_document error: {str(e)}")
+            frappe.log_error(
+                f"FlowEngine create_document error: {str(e)}\nData: {data}\nMapping: {mapping if 'mapping' in dir() else 'N/A'}",
+                "WhatsApp Chatbot Error"
+            )
 
     def call_api(self, endpoint, data):
         """Call external API with flow data."""
@@ -442,3 +481,37 @@ class FlowEngine:
             exec(script, eval_globals)
         except Exception as e:
             frappe.log_error(f"FlowEngine run_script error: {str(e)}")
+
+    def run_response_script(self, script, data, session):
+        """Run script to generate dynamic response message.
+
+        The script should set 'response' variable with the message to return.
+        Available in script:
+            - data: dict of collected session data
+            - frappe: frappe module for database queries
+            - json: json module
+            - session: the current session document
+            - phone_number: user's phone number
+
+        Example script:
+            order_id = data.get('order_id')
+            if order_id:
+                order = frappe.get_doc('Sales Order', order_id)
+                response = f"Order {order_id} status: {order.status}"
+            else:
+                response = "Order not found"
+        """
+        try:
+            eval_globals = {
+                "data": data,
+                "frappe": frappe,
+                "json": json,
+                "session": session,
+                "phone_number": self.phone_number,
+                "response": None
+            }
+            exec(script, eval_globals)
+            return eval_globals.get("response")
+        except Exception as e:
+            frappe.log_error(f"FlowEngine run_response_script error: {str(e)}")
+            return None
