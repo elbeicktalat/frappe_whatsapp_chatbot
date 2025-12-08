@@ -66,7 +66,7 @@ class FlowEngine:
                 return None
 
             # Get first step
-            first_step = sorted(flow.steps, key=lambda x: x.step_order)[0]
+            first_step = sorted(flow.steps, key=lambda x: x.idx)[0]
 
             # Create session
             session = frappe.get_doc({
@@ -300,7 +300,7 @@ class FlowEngine:
             return current_step.next_step
 
         # Find next step by order
-        sorted_steps = sorted(all_steps, key=lambda x: x.step_order)
+        sorted_steps = sorted(all_steps, key=lambda x: x.idx)
         current_idx = None
         for i, step in enumerate(sorted_steps):
             if step.step_name == current_step.step_name:

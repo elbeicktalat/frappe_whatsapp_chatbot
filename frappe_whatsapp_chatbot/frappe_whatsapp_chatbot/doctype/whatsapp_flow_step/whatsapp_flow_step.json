@@ -6,7 +6,6 @@
     "engine": "InnoDB",
     "field_order": [
         "step_name",
-        "step_order",
         "message",
         "input_type",
         "store_as",
@@ -31,14 +30,6 @@
             "label": "Step Name",
             "reqd": 1,
             "description": "Unique identifier for this step (e.g., step_welcome, step_email)"
-        },
-        {
-            "fieldname": "step_order",
-            "fieldtype": "Int",
-            "in_list_view": 1,
-            "label": "Order",
-            "reqd": 1,
-            "default": 1
         },
         {
             "fieldname": "message",
@@ -151,7 +142,7 @@
     "name": "WhatsApp Flow Step",
     "owner": "Administrator",
     "permissions": [],
-    "sort_field": "step_order",
+    "sort_field": "idx",
     "sort_order": "ASC",
     "states": []
 }

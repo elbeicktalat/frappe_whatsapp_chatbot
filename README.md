@@ -108,7 +108,6 @@ Flows allow multi-step conversations to collect information from users.
 | Field | Description |
 |-------|-------------|
 | Step Name | Unique identifier for this step |
-| Order | Execution order (1, 2, 3...) |
 | Message | Message to send. Use `{variable_name}` for substitution |
 | Message Type | **Text** - plain message, **Template** - WhatsApp template, **Script** - dynamic Python script |
 | Input Type | Expected input: **None**, **Text**, **Number**, **Email**, **Phone**, **Date**, **Select** |

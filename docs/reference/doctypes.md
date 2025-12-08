@@ -95,7 +95,6 @@ Individual flow steps.
 | Field | Type | Description |
 |-------|------|-------------|
 | step_name | Data | Unique step ID |
-| step_order | Int | Execution order |
 | message | Text | Message to send |
 | message_type | Select | Text/Template/Script |
 | template | Link | WhatsApp Template |

@@ -37,7 +37,6 @@ Each step in the flow is configured in the Steps table.
 | Field | Description |
 |-------|-------------|
 | **Step Name** | Unique identifier (e.g., `ask_name`, `ask_email`) |
-| **Order** | Execution order (1, 2, 3...) |
 | **Message** | Message to send. Use `{variable}` for substitution |
 | **Message Type** | Text, Template, or Script |
 | **Input Type** | Expected input type |
