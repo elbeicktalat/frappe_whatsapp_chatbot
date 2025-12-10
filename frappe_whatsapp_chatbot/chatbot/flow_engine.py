@@ -518,7 +518,8 @@ class FlowEngine:
 
         if field_mapping:
             # Map flow fields to session variables based on mapping
-            for flow_field, session_var in field_mapping.items():
+            # Mapping format: {"session_var": "flow_field"}
+            for session_var, flow_field in field_mapping.items():
                 if flow_field in flow_response:
                     session_data[session_var] = flow_response[flow_field]
         else:
