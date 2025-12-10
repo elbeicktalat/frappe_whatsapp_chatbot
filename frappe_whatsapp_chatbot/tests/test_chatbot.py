@@ -186,6 +186,7 @@ class TestWhatsAppFlowIntegration(IntegrationTestCase):
         # Mock step with field mapping
         class MockStep:
             flow_field_mapping = '{"client_name": "name", "phone": "mobile", "booking_date": "date"}'
+            store_as = None
 
         # Mock session
         class MockSession:
@@ -215,6 +216,7 @@ class TestWhatsAppFlowIntegration(IntegrationTestCase):
 
         class MockStep:
             flow_field_mapping = None
+            store_as = None
 
         class MockSession:
             session_data = "{}"
@@ -271,7 +273,7 @@ class TestWhatsAppFlowIntegration(IntegrationTestCase):
         class MockSession:
             session_data = "{}"
 
-        response = flow_engine.build_step_message(MockStep(), {}, MockSession())
+        response = flow_engine.build_step_message(MockStep(), MockSession())
 
         # Response should be a dict with flow message structure
         self.assertIsInstance(response, dict)
@@ -299,6 +301,6 @@ class TestFlowEngineValidation(IntegrationTestCase):
             validation_error = None
 
         # Any input should pass for WhatsApp Flow type
-        self.assertTrue(flow_engine.validate_input(MockStep(), "any input"))
-        self.assertTrue(flow_engine.validate_input(MockStep(), ""))
-        self.assertTrue(flow_engine.validate_input(MockStep(), None))
+        self.assertTrue(flow_engine.validate_input(MockStep(), "any input", None))
+        self.assertTrue(flow_engine.validate_input(MockStep(), "", None))
+        self.assertTrue(flow_engine.validate_input(MockStep(), None, None))

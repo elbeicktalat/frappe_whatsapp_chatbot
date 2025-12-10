@@ -13,6 +13,7 @@ Supports keyword-based replies, multi-step conversation flows with dynamic scrip
 
 - **Keyword-Based Replies**: Configure automatic responses based on keywords with multiple match types
 - **Conversation Flows**: Multi-step decision trees with user input collection and validation
+- **WhatsApp Flow Integration**: Send native WhatsApp Flows for rich form experiences
 - **Dynamic Script Responses**: Execute Python scripts to generate dynamic responses (e.g., check order status from database)
 - **Document Creation**: Automatically create Frappe documents from collected flow data
 - **Optional AI Integration**: OpenAI and Anthropic support for intelligent responses
@@ -117,7 +118,7 @@ Flows allow multi-step conversations to collect information from users.
 | Step Name | Unique identifier for this step |
 | Message | Message to send. Use `{variable_name}` for substitution |
 | Message Type | **Text** - plain message, **Template** - WhatsApp template, **Script** - dynamic Python script |
-| Input Type | Expected input: **None**, **Text**, **Number**, **Email**, **Phone**, **Date**, **Select** |
+| Input Type | Expected input: **None**, **Text**, **Number**, **Email**, **Phone**, **Date**, **Select**, **WhatsApp Flow** |
 | Store As | Variable name to store user's input (e.g., `customer_email`) |
 | Options | For Select type: pipe-separated options (e.g., `Option 1|Option 2|Option 3`) |
 | Validation Regex | Custom regex pattern for input validation |
@@ -285,6 +286,50 @@ Steps:
 │ Store As: issue_description                                     │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+### Example 5: Using WhatsApp Flows
+
+Integrate native WhatsApp Flows to collect structured data with a rich form UI.
+
+> **Note:** Requires WhatsApp Flows to be set up in the `frappe_whatsapp` app first.
+
+```
+Flow Name: Booking Request
+Trigger Keywords: book, appointment, schedule
+
+Steps:
+┌─────────────────────────────────────────────────────────────────┐
+│ Step 1                                                          │
+│ Step Name: collect_booking_info                                 │
+│ Message: Please fill out the booking form below.                │
+│ Input Type: WhatsApp Flow                                       │
+│ WhatsApp Flow: Booking Form                                     │
+│ Flow CTA: Open Booking Form                                     │
+│ Flow Screen: booking_screen                                     │
+│ Flow Field Mapping:                                             │
+│ {                                                               │
+│   "customer_name": "name",                                      │
+│   "customer_phone": "mobile",                                   │
+│   "appointment_date": "date"                                    │
+│ }                                                               │
+└─────────────────────────────────────────────────────────────────┘
+
+Completion Message: Thank you {customer_name}! Your appointment is confirmed for {appointment_date}.
+
+On Complete Action: Create Document
+Create DocType: Appointment
+```
+
+#### WhatsApp Flow Step Fields
+
+| Field | Description |
+|-------|-------------|
+| WhatsApp Flow | Link to the WhatsApp Flow document |
+| Flow CTA | Call-to-action button text (e.g., "Open Form") |
+| Flow Screen | Initial screen to display (optional) |
+| Flow Field Mapping | JSON mapping: `{"session_var": "flow_field"}` |
+
+When the user completes the WhatsApp Flow, the response data is automatically mapped to session variables based on the Field Mapping configuration.
 
 ---
 

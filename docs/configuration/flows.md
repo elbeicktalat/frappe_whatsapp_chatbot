@@ -58,6 +58,7 @@ Each step in the flow is configured in the Steps table. **Drag and drop rows to 
 | **Date** | Date input | Common formats (DD-MM-YYYY, etc.) |
 | **Select** | Choice from options | Must match one of the options |
 | **Button** | Interactive buttons | User must tap a button |
+| **WhatsApp Flow** | Native WhatsApp Flow form | Validated by WhatsApp |
 
 ### Buttons & Lists
 
@@ -156,6 +157,92 @@ else:
 
 4. Set **Store As** to `selected_invoice`
 5. In the next step, use `{selected_invoice}` to fetch and display details
+
+### WhatsApp Flow Integration
+
+Use native WhatsApp Flows for rich form experiences. WhatsApp Flows provide a native UI inside WhatsApp for collecting structured data with text inputs, dropdowns, date pickers, and more.
+
+> **Prerequisites:** WhatsApp Flows must be created in the `frappe_whatsapp` app first. See [WhatsApp Flow documentation](https://shridarpatil.github.io/frappe_whatsapp/#whatsapp-flows).
+
+#### Setup
+
+1. Set **Input Type** to `WhatsApp Flow`
+2. Select the **WhatsApp Flow** to send
+3. Set **Flow CTA** (call-to-action button text)
+4. Optionally set **Flow Screen** (initial screen to display)
+5. Configure **Flow Field Mapping** to map flow response fields to session variables
+
+#### WhatsApp Flow Fields
+
+| Field | Description |
+|-------|-------------|
+| **WhatsApp Flow** | Link to the WhatsApp Flow document |
+| **Flow CTA** | Call-to-action button text (e.g., "Open Form", "Book Now") |
+| **Flow Screen** | Initial screen to display (optional) |
+| **Flow Field Mapping** | JSON mapping: `{"session_var": "flow_field"}` |
+
+#### Field Mapping
+
+Map fields from the WhatsApp Flow response to session variables:
+
+```json
+{
+  "customer_name": "name",
+  "customer_phone": "mobile",
+  "booking_date": "date",
+  "service_type": "service"
+}
+```
+
+- **Keys** = Session variable names (used in subsequent steps with `{variable}`)
+- **Values** = Field names from the WhatsApp Flow response
+
+#### Example: Booking Flow with WhatsApp Flow
+
+```
+Flow Name: Appointment Booking
+Trigger Keywords: book, appointment, schedule
+
+Steps:
+┌─────────────────────────────────────────────────────────────────┐
+│ Step 1: collect_booking                                         │
+│ Message: Please fill out the booking form.                      │
+│ Input Type: WhatsApp Flow                                       │
+│ WhatsApp Flow: Booking Form                                     │
+│ Flow CTA: Open Booking Form                                     │
+│ Flow Field Mapping:                                             │
+│   {"customer_name": "name", "phone": "mobile", "date": "date"}  │
+├─────────────────────────────────────────────────────────────────┤
+│ Step 2: confirm_booking                                         │
+│ Message: Thanks {customer_name}! Confirm booking for {date}?    │
+│ Input Type: Button                                              │
+│ Buttons: [{"id":"yes","title":"Confirm"},{"id":"no","title":"Cancel"}] │
+│ Store As: confirmation                                          │
+│ Conditional Next: {"yes": "create_booking", "no": "cancelled"}  │
+└─────────────────────────────────────────────────────────────────┘
+
+Completion Message: Your appointment is confirmed for {date}!
+On Complete Action: Create Document
+Create DocType: Appointment
+Field Mapping: {"customer": "customer_name", "date": "date", "phone": "phone"}
+```
+
+#### How It Works
+
+1. User triggers the chatbot flow
+2. Chatbot sends a WhatsApp Flow message with CTA button
+3. User taps the button and fills out the native WhatsApp form
+4. User submits the form
+5. WhatsApp sends the response back via webhook
+6. Chatbot maps the response fields to session variables
+7. Flow continues to the next step with the collected data
+
+#### Notes
+
+- WhatsApp Flow responses are validated by WhatsApp itself
+- Draft flows can only be tested with registered test numbers
+- Published flows are available to all users
+- Flow responses include all fields from all screens in the flow
 
 ### Message Type: Script
 
