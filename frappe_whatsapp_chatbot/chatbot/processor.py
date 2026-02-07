@@ -503,21 +503,30 @@ def background_media_processor(doc_name):
     """Wait for attachment link and process media message."""
     import time
 
-    # Poll briefly for the file link
+    # 1. Fetch static data ONCE
+    # We get these now so we don't have to keep asking the DB for them in the loop
+    msg_data = frappe.db.get_value(
+        "WhatsApp Message",
+        doc_name,
+        ["from", "content_type", "whatsapp_account", "flow_response"],
+        as_dict=1
+    )
+
+    if not msg_data:
+        return
+
+    # 2. Optimized Polling Loop
     media_url = None
-    for _ in range(8):
-        time.sleep(1)
-        frappe.db.commit()  # Clear cache to see the downloader's update
+    for _ in range(4):
+        time.sleep(2)  # Wait a bit for the downloader to update the record
 
-        msg_data = frappe.db.get_value(
-            "WhatsApp Message",
-            doc_name,
-            ["from", "content_type", "whatsapp_account", "attach"],
-            as_dict=1
-        )
+        # Clear transaction cache to see updates from the downloader
+        frappe.db.rollback()
 
-        if msg_data and msg_data.attach:
-            media_url = msg_data.attach
+        # Only fetch the 'attach' field - much lighter than fetching the whole row
+        media_url = frappe.db.get_value("WhatsApp Message", doc_name, "attach")
+
+        if media_url:
             break
 
     if media_url:
