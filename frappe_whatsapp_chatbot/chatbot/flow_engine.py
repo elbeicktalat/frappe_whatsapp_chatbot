@@ -171,7 +171,7 @@ class FlowEngine:
             session.add_message("Incoming", user_input, current_step.step_name)
 
             # Determine next step
-            next_step_name = self.get_next_step(current_step, flow.steps, user_input, button_payload)
+            next_step_name = self.get_next_step(current_step, flow.steps, user_input, button_payload, session=session)
 
             # If it's an image/file and no conditional match was found,
             # find the next sequential step so the flow doesn't die.
@@ -342,7 +342,7 @@ class FlowEngine:
         # 5. RECURSIVE JUMP: Process the next path immediately
         return self.silent_route(next_path, all_steps, session)
 
-    def get_next_step(self, current_step, all_steps, user_input, button_payload):
+    def get_next_step(self, current_step, all_steps, user_input, button_payload, session=None):
         """Determine the next step based on input."""
         # Check conditional next
         next_step_name = None
