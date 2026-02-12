@@ -311,9 +311,42 @@ class FlowEngine:
 
         return True, None
 
+    def silent_route(self, step_name, all_steps, session):
+        """
+        Background router. If step_name is a 'Router', it runs the
+        response_script and jumps to the next step without user interaction.
+        """
+        # 1. Find the step document
+        step_doc = next((s for s in all_steps if s.step_name == step_name), None)
+
+        # 2. If it's not a Router step, it's a visible step. Return it.
+        if not step_doc or step_doc.input_type != "Router":
+            return step_name
+
+        # 3. It's a Router! Run the server-side check silently.
+        session_data = parse_json(session.session_data)
+
+        # Executing the script (expects 'response = True/False')
+        condition_met = self.run_response_script(
+            step_doc.response_script,
+            session_data,
+            session
+        )
+
+        # 4. Determine path: if True -> next_step, if False -> else_next_step
+        next_path = step_doc.next_step if condition_met else step_doc.else_next_step
+
+        if not next_path:
+            return None
+
+        # 5. RECURSIVE JUMP: Process the next path immediately
+        return self.silent_route(next_path, all_steps, session)
+
     def get_next_step(self, current_step, all_steps, user_input, button_payload):
         """Determine the next step based on input."""
         # Check conditional next
+        next_step_name = None
+
         if current_step.conditional_next:
             conditions = parse_json(current_step.conditional_next, {})
             if conditions:
@@ -321,26 +354,31 @@ class FlowEngine:
                 response_key = button_payload or clean_input
 
                 if response_key in conditions:
-                    return conditions[response_key]
+                    next_step_name = conditions[response_key]
                 if "default" in conditions:
-                    return conditions["default"]
+                    next_step_name = conditions["default"]
 
         # Use explicit next step
-        if current_step.next_step:
-            return current_step.next_step
+        if not next_step_name and current_step.next_step:
+            next_step_name = current_step.next_step
 
         # Find next step by order
-        sorted_steps = sorted(all_steps, key=lambda x: x.idx)
-        current_idx = None
-        for i, step in enumerate(sorted_steps):
-            if step.step_name == current_step.step_name:
-                current_idx = i
-                break
+        if not next_step_name:
+            sorted_steps = sorted(all_steps, key=lambda x: x.idx)
+            current_idx = None
+            for i, step in enumerate(sorted_steps):
+                if step.step_name == current_step.step_name:
+                    current_idx = i
+                    break
 
-        if current_idx is not None and current_idx < len(sorted_steps) - 1:
-            return sorted_steps[current_idx + 1].step_name
+            if current_idx is not None and current_idx < len(sorted_steps) - 1:
+                next_step_name = sorted_steps[current_idx + 1].step_name
 
-        return None
+        # If a session exists, pass the calculated next step through the silent router
+        if next_step_name and session:
+            return self.silent_route(next_step_name, all_steps, session)
+
+        return next_step_name
 
     def build_step_message(self, step, session):
         """Build message for a step with variable substitution."""
