@@ -21,6 +21,7 @@
   "validation_regex",
   "validation_error",
   "next_step",
+  "else_next_step",
   "conditional_next",
   "skip_condition",
   "retry_on_invalid",
@@ -41,7 +42,7 @@
    "fieldtype": "Text",
    "in_list_view": 1,
    "label": "Message",
-   "reqd": 1
+   "mandatory_depends_on": "eval:doc.input_type!='Router'"
   },
   {
    "default": "Text",
@@ -66,12 +67,12 @@
   },
   {
    "default": "Text",
-   "description": "Type of input expected from user",
+   "description": "Type of input expected from user. Router used for routing based on script result.",
    "fieldname": "input_type",
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Input Type",
-   "options": "None\nText\nNumber\nEmail\nPhone\nDate\nSelect\nButton\nImage\nFile\nWhatsApp Flow"
+   "options": "None\nText\nNumber\nEmail\nPhone\nDate\nSelect\nButton\nImage\nFile\nWhatsApp Flow\nRouter"
   },
   {
    "depends_on": "eval:doc.input_type=='Select'",
@@ -169,11 +170,18 @@
    "fieldname": "max_retries",
    "fieldtype": "Int",
    "label": "Max Retries"
+  },
+  {
+   "depends_on": "eval:doc.input_type=='Router'",
+   "description": "Name of alternative next step.",
+   "fieldname": "else_next_step",
+   "fieldtype": "Data",
+   "label": "Else Next Step"
   }
  ],
  "istable": 1,
  "links": [],
- "modified": "2026-02-06 23:22:56.373449",
+ "modified": "2026-02-12 19:55:11.839436",
  "modified_by": "Administrator",
  "module": "Frappe WhatsApp Chatbot",
  "name": "WhatsApp Flow Step",
