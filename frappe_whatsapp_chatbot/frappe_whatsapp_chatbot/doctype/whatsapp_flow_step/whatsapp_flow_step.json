@@ -25,7 +25,8 @@
   "conditional_next",
   "skip_condition",
   "retry_on_invalid",
-  "max_retries"
+  "max_retries",
+  "target_flow"
  ],
  "fields": [
   {
@@ -60,7 +61,7 @@
   },
   {
    "depends_on": "eval:doc.message_type=='Script'",
-   "description": "Python script to generate response. Use 'data' dict for session data, 'frappe' module available. Set 'response' variable with the message to send.",
+   "description": "Python script to generate response. Use 'data' dict for session data, Use 'phone_number' user phone. 'frappe' module available. Set 'response' variable with the message to send.",
    "fieldname": "response_script",
    "fieldtype": "Small Text",
    "label": "Response Script (for Message Type: Script)"
@@ -72,7 +73,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Input Type",
-   "options": "None\nText\nNumber\nEmail\nPhone\nDate\nSelect\nButton\nImage\nFile\nWhatsApp Flow\nRouter"
+   "options": "None\nText\nNumber\nEmail\nPhone\nDate\nSelect\nButton\nImage\nFile\nWhatsApp Flow\nRouter\nCondition\nJump"
   },
   {
    "depends_on": "eval:doc.input_type=='Select'",
@@ -140,7 +141,7 @@
    "label": "Store As"
   },
   {
-   "description": "Name of the next step. Leave empty for next in order.",
+   "description": "Name of the next step. Leave empty for next in order. ",
    "fieldname": "next_step",
    "fieldtype": "Data",
    "label": "Next Step"
@@ -173,15 +174,22 @@
   },
   {
    "depends_on": "eval:doc.input_type=='Router'",
-   "description": "Name of alternative next step.",
+   "description": "Name of alternative next step. ",
    "fieldname": "else_next_step",
    "fieldtype": "Data",
    "label": "Else Next Step"
+  },
+  {
+   "depends_on": "eval:doc.input_type=='Jump'",
+   "fieldname": "target_flow",
+   "fieldtype": "Link",
+   "label": "Target Flow",
+   "options": "WhatsApp Chatbot Flow"
   }
  ],
  "istable": 1,
  "links": [],
- "modified": "2026-02-12 19:55:11.839436",
+ "modified": "2026-02-14 23:00:52.200190",
  "modified_by": "Administrator",
  "module": "Frappe WhatsApp Chatbot",
  "name": "WhatsApp Flow Step",

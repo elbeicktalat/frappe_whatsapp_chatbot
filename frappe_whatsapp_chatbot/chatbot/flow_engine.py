@@ -313,34 +313,74 @@ class FlowEngine:
 
     def silent_route(self, step_name, all_steps, session):
         """
-        Background router. If step_name is a 'Router', it runs the
-        response_script and jumps to the next step without user interaction.
+        Background handler.
+        - Condition: Binary True/False split.
+        - Router: Multi-path string matching.
+        - Jump: Transition to a different flow entirely.
         """
         # 1. Find the step document
         step_doc = next((s for s in all_steps if s.step_name == step_name), None)
 
-        # 2. If it's not a Router step, it's a visible step. Return it.
-        if not step_doc or step_doc.input_type != "Router":
+        if not step_doc:
             return step_name
 
-        # 3. It's a Router! Run the server-side check silently.
         session_data = parse_json(session.session_data)
 
-        # Executing the script (expects 'response = True/False')
-        condition_met = self.run_response_script(
-            step_doc.response_script,
-            session_data,
-            session
-        )
+        # ACTION NODE (Task Execution)
+        if step_doc.input_type == "Action":
+            # Run the script (e.g., Create Sales Order)
+            self.run_response_script(step_doc.response_script, session_data, session)
+            # Actions ALWAYS continue to next_step immediately
+            return self.silent_route(step_doc.next_step, all_steps, session)
 
-        # 4. Determine path: if True -> next_step, if False -> else_next_step
-        next_path = step_doc.next_step if condition_met else step_doc.else_next_step
+        # JUMP LOGIC (Start Another Flow)
+        if step_doc.input_type == "Jump" and step_doc.target_flow:
+            # Switch session to new flow
+            session.current_flow = step_doc.target_flow
+            new_flow = frappe.get_doc("WhatsApp Chatbot Flow", step_doc.target_flow)
 
-        if not next_path:
-            return None
+            if not new_flow.steps:
+                return None
 
-        # 5. RECURSIVE JUMP: Process the next path immediately
-        return self.silent_route(next_path, all_steps, session)
+            first_step = sorted(new_flow.steps, key=lambda x: x.idx)[0]
+            session.current_step = first_step.step_name
+            session.save()
+
+            # Immediately process the first step of the new flow
+            return self.silent_route(first_step.step_name, new_flow.steps, session)
+
+        # CONDITION & ROUTER LOGIC
+        if step_doc.input_type in ["Condition", "Router"]:
+            # Run script - expects 'response' variable to be set
+            logic_result = self.run_response_script(
+                step_doc.response_script,
+                session_data,
+                session
+            )
+
+            next_path = None
+
+            if step_doc.input_type == "Condition":
+                # Binary split: True -> next_step, False -> else_next_step
+                next_path = step_doc.next_step if logic_result else step_doc.else_next_step
+
+            elif step_doc.input_type == "Router":
+                # Multi-path: Match logic_result string to conditional_next keys
+                mapping = parse_json(step_doc.conditional_next, {})
+                next_path = mapping.get(str(logic_result).lower())
+
+                # Fallback to 'else_next_step' if no match found in JSON
+                if not next_path:
+                    next_path = mapping.get("default") or step_doc.else_next_step
+
+            if not next_path:
+                return None
+
+            # RECURSIVE JUMP: Process the next path immediately
+            return self.silent_route(next_path, all_steps, session)
+
+        return step_name
+
 
     def get_next_step(self, current_step, all_steps, user_input, button_payload, session=None):
         """Determine the next step based on input."""

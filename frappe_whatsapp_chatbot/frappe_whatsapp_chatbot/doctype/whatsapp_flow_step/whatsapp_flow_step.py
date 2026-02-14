@@ -4,43 +4,39 @@ from frappe.model.document import Document
 
 class WhatsAppFlowStep(Document):
     def validate(self):
-        if self.input_type == "Router":
+        if self.input_type == "Condition":
+            self.validate_condition_logic()
+        elif self.input_type == "Router":
             self.validate_router_logic()
+        elif self.input_type == "Jump":
+            self.validate_jump_logic()
+        elif self.input_type == "Action":
+            self.validate_action_logic()
         else:
-            if not self.message:
+            if not self.message and self.input_type != "None":
                 frappe.throw(f"Message is required for visible step: {self.step_name}")
 
-    def validate_router_setup(self):
-        # 1. Ensure response_script is present
+    def validate_condition_logic(self):
         if not self.response_script:
-            frappe.throw(f"Step '{self.step_name}' is a Router and requires a 'Response Script' to decide the path.")
+            frappe.throw(f"Condition '{self.step_name}' requires a script.")
+        if not self.else_next_step:
+            frappe.throw(f"Condition '{self.step_name}' requires an 'Else Next Step' for the False path.")
 
-        if "response" not in self.response_script:
-            frappe.throw("Router scripts usually need to set the 'response' variable to True or False.")
+    def validate_router_logic(self):
+        if not self.response_script:
+            frappe.throw(f"Router '{self.step_name}' requires a script.")
+        if not self.conditional_next:
+            frappe.throw(f"Router '{self.step_name}' requires JSON paths in 'Conditional Next Step'.")
 
-        # 2. Ensure else_next_step is present (so the logic has two paths)
-        if not getattr(self, "else_next_step", None):
+    def validate_jump_logic(self):
+        if not self.next_step:
+            frappe.throw(f"Jump step '{self.step_name}' must have a 'Next Step' to jump to.")
+
+    def validate_action_logic(self):
+        if not self.next_step:
             frappe.throw(
-                f"Step '{self.step_name}' is a Router and requires an 'Else Next Step' for when the script returns False."
+                f"Action step '{self.step_name}' must have a 'Next Step' "
+                "so the flow can continue after the background task."
             )
-
-        # 3. Prevent Router Chaining (The "No Stack Overflow" check)
-        if self.next_step:
-            self.check_target_is_not_router(self.next_step, "Next Step")
-
-        if self.else_next_step:
-            self.check_target_is_not_router(self.else_next_step, "Else Next Step")
-
-    def check_target_is_not_router(self, target_step_name, field_label):
-        # Note: We use 'parent' to ensure we check steps within the same Chatbot Flow
-        target_type = frappe.db.get_value(
-            "WhatsApp Flow Step",
-            {"step_name": target_step_name, "parent": self.parent},
-            "input_type"
-        )
-
-        if target_type == "Router":
-            frappe.throw(
-                f"Logic Error: Router step '{self.step_name}' cannot point to another Router ('{target_step_name}'). "
-                f"The {field_label} must be a visible step (Text, Button, etc.) to prevent infinite loops."
-            )
+        if not self.response_script:
+            frappe.throw(f"Action step '{self.step_name}' requires an 'Action Script'.")
