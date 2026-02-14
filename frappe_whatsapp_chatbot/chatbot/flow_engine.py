@@ -170,47 +170,28 @@ class FlowEngine:
             # Log message in session
             session.add_message("Incoming", user_input, current_step.step_name)
 
-            # Determine next step
-            next_step_name = self.get_next_step(current_step, flow.steps, user_input, button_payload, session=session)
+            # get_next_step now returns the actual Step Object (even from a Jumped flow)
+            next_step = self.get_next_step(current_step, flow.steps, user_input, button_payload, session=session)
 
-            # If it's an image/file and no conditional match was found,
-            # find the next sequential step so the flow doesn't die.
-            if not next_step_name and current_step.input_type in ["Image", "File"]:
+            # Handle edge case for media uploads if no route was found
+            if not next_step and current_step.input_type in ["Image", "File"]:
                 sorted_steps = sorted(flow.steps, key=lambda x: x.idx)
                 for i, step in enumerate(sorted_steps):
                     if step.step_name == current_step.step_name and i < len(sorted_steps) - 1:
-                        next_step_name = sorted_steps[i + 1].step_name
+                        next_step = self.silent_route(sorted_steps[i + 1].step_name, flow.steps, session)
                         break
-
-            if not next_step_name:
-                # No next step, complete flow
-                session.save(ignore_permissions=True)
-                frappe.db.commit()
-                return self.complete_flow(session, flow)
-
-            # Find next step
-            next_step = None
-            for step in flow.steps:
-                if step.step_name == next_step_name:
-                    next_step = step
-                    break
 
             if not next_step:
                 return self.complete_flow(session, flow)
 
-            # Check skip condition for next step
+            # Handle Skip Conditions recursively
             session_data = parse_json(session.session_data, {})
-            if next_step.skip_condition:
-                if self.evaluate_skip_condition(next_step.skip_condition, session_data):
-                    # Skip this step, find the one after
-                    next_step_name = self.get_next_step(next_step, flow.steps, None, None)
-                    if not next_step_name:
-                        return self.complete_flow(session, flow)
+            if next_step.skip_condition and self.evaluate_skip_condition(next_step.skip_condition, session_data):
+                # If skipped, route again starting from the skipped step
+                next_step = self.get_next_step(next_step, flow.steps, None, None, session=session)
 
-                    for step in flow.steps:
-                        if step.step_name == next_step_name:
-                            next_step = step
-                            break
+            if not next_step:
+                return self.complete_flow(session, flow)
 
             # Update session
             session.current_step = next_step.step_name
@@ -245,7 +226,6 @@ class FlowEngine:
             if val and (val.startswith("/") or "files/" in val or val.startswith("http")):
                 return True, None
             return False, f"Please upload an {input_type.lower()} to continue."
-
 
         if input_type == "Button":
             # Button responses are always valid (payload or text)
@@ -311,6 +291,22 @@ class FlowEngine:
 
         return True, None
 
+    def handle_jump(self, step_doc, session):
+        """Handles switching to a different flow and returning the new context."""
+        target_flow_name = step_doc.target_flow
+        session.current_flow = target_flow_name
+
+        new_flow = frappe.get_doc("WhatsApp Chatbot Flow", target_flow_name)
+        if not new_flow.steps:
+            return None
+
+        first_step = sorted(new_flow.steps, key=lambda x: x.idx)[0]
+        session.current_step = first_step.step_name
+        session.save(ignore_permissions=True)
+
+        # Start processing from the new flow's first step
+        return self.silent_route(first_step.step_name, new_flow.steps, session)
+
     def silent_route(self, step_name, all_steps, session):
         """
         Background handler.
@@ -318,11 +314,12 @@ class FlowEngine:
         - Router: Multi-path string matching.
         - Jump: Transition to a different flow entirely.
         """
-        # 1. Find the step document
+        # 1. Find the step document in the current context
         step_doc = next((s for s in all_steps if s.step_name == step_name), None)
 
+        # If step doesn't exist, we can't route; return None to trigger complete_flow
         if not step_doc:
-            return step_name
+            return None
 
         session_data = parse_json(session.session_data)
 
@@ -330,7 +327,9 @@ class FlowEngine:
         if step_doc.input_type == "Action":
             # Run the script (e.g., Create Sales Order)
             self.run_response_script(step_doc.response_script, session_data, session)
-            # Actions ALWAYS continue to next_step immediately
+            # Actions always save data and continue immediately
+            session.session_data = json.dumps(session_data)
+            session.save(ignore_permissions=True)
             return self.silent_route(step_doc.next_step, all_steps, session)
 
         # JUMP LOGIC (Start Another Flow)
@@ -342,6 +341,7 @@ class FlowEngine:
             if not new_flow.steps:
                 return None
 
+            # Jumps always start at the first step (lowest index) of the new flow
             first_step = sorted(new_flow.steps, key=lambda x: x.idx)[0]
             session.current_step = first_step.step_name
             session.save()
@@ -369,18 +369,18 @@ class FlowEngine:
                 mapping = parse_json(step_doc.conditional_next, {})
                 next_path = mapping.get(str(logic_result).lower())
 
-                # Fallback to 'else_next_step' if no match found in JSON
+                # Fallback to 'default' key or 'else_next_step' field
                 if not next_path:
                     next_path = mapping.get("default") or step_doc.else_next_step
 
             if not next_path:
                 return None
 
-            # RECURSIVE JUMP: Process the next path immediately
+            # Process the chosen path immediately
             return self.silent_route(next_path, all_steps, session)
 
-        return step_name
-
+        # If it's a Message, Button, or any other input type, return the object itself
+        return step_doc
 
     def get_next_step(self, current_step, all_steps, user_input, button_payload, session=None):
         """Determine the next step based on input."""
@@ -389,14 +389,11 @@ class FlowEngine:
 
         if current_step.conditional_next:
             conditions = parse_json(current_step.conditional_next, {})
-            if conditions:
-                clean_input = str(user_input or "").strip().lower()
-                response_key = button_payload or clean_input
+            clean_input = str(user_input or "").strip().lower()
+            response_key = button_payload or clean_input
 
-                if response_key in conditions:
-                    next_step_name = conditions[response_key]
-                if "default" in conditions:
-                    next_step_name = conditions["default"]
+            # Look for exact match or default fallback
+            next_step_name = conditions.get(response_key) or conditions.get("default")
 
         # Use explicit next step
         if not next_step_name and current_step.next_step:
@@ -405,20 +402,17 @@ class FlowEngine:
         # Find next step by order
         if not next_step_name:
             sorted_steps = sorted(all_steps, key=lambda x: x.idx)
-            current_idx = None
             for i, step in enumerate(sorted_steps):
-                if step.step_name == current_step.step_name:
-                    current_idx = i
+                if step.step_name == current_step.step_name and i < len(sorted_steps) - 1:
+                    next_step_name = sorted_steps[i + 1].step_name
                     break
 
-            if current_idx is not None and current_idx < len(sorted_steps) - 1:
-                next_step_name = sorted_steps[current_idx + 1].step_name
-
-        # If a session exists, pass the calculated next step through the silent router
         if next_step_name and session:
+            # We call silent_route which processes Actions/Jumps
+            # and returns the final visible Step Object.
             return self.silent_route(next_step_name, all_steps, session)
 
-        return next_step_name
+        return None
 
     def build_step_message(self, step, session):
         """Build message for a step with variable substitution."""
