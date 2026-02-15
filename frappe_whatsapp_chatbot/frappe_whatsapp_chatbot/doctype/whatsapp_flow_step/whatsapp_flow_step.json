@@ -185,7 +185,7 @@
    "fieldtype": "Link",
    "label": "Target Flow",
    "options": "WhatsApp Chatbot Flow"
-  },
+  }
  ],
  "istable": 1,
  "links": [],
