@@ -438,8 +438,17 @@ class FlowEngine:
             return message
 
         # Add buttons if defined
-        if step.input_type == "Button" and step.buttons:
-            buttons = parse_json(step.buttons, [])
+        if step.input_type == "Button":
+            # Check for injected buttons from a previous Action Node
+            injected_buttons = session_data.get("dynamic_buttons")
+
+            if injected_buttons:
+                buttons = injected_buttons
+                # Clear them after use if you don't want them persisting
+                # session_data['dynamic_buttons'] = None
+            else:
+                buttons = parse_json(step.buttons, [])
+
             if buttons:
                 return {
                     "message": message,
@@ -652,12 +661,25 @@ class FlowEngine:
             buttons = [{"id": inv.name, "title": inv.name, "description": f"₹{inv.grand_total}"} for inv in invoices]
             response = {"message": "Select an invoice:", "content_type": "interactive", "buttons": json.dumps(buttons)}
         """
+
+        # HELPER: Formats and injects buttons into session data
+        def set_buttons(btn_list):
+            formatted = []
+            for b in btn_list:
+                formatted.append({
+                    "id": str(b.get("id")),
+                    "title": str(b.get("title"))[:24],  # WhatsApp limit
+                    "description": str(b.get("description", ""))[:72]  # WhatsApp limit
+                })
+            data['dynamic_buttons'] = formatted
+
         try:
             eval_globals = {
                 "data": data,
                 "frappe": frappe,
                 "json": json,
                 "session": session,
+                "set_buttons": set_buttons,
                 "phone_number": self.phone_number,
                 "response": None
             }
