@@ -673,6 +673,9 @@ class FlowEngine:
                 })
             data['dynamic_buttons'] = formatted
 
+            # FORCE update the session object's field immediately
+            session.session_data = json.dumps(data)
+
         try:
             eval_globals = {
                 "data": data,
