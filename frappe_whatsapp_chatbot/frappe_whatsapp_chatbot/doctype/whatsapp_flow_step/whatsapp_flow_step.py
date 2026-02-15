@@ -10,8 +10,6 @@ class WhatsAppFlowStep(Document):
             self.validate_router_logic()
         elif self.input_type == "Jump":
             self.validate_jump_logic()
-        elif self.input_type == "Action":
-            self.validate_action_logic()
         else:
             if not self.message and self.input_type != "None":
                 frappe.throw(f"Message is required for visible step: {self.step_name}")
@@ -31,12 +29,3 @@ class WhatsAppFlowStep(Document):
     def validate_jump_logic(self):
         if not self.next_step:
             frappe.throw(f"Jump step '{self.step_name}' must have a 'Next Step' to jump to.")
-
-    def validate_action_logic(self):
-        if not self.next_step:
-            frappe.throw(
-                f"Action step '{self.step_name}' must have a 'Next Step' "
-                "so the flow can continue after the background task."
-            )
-        if not self.response_script:
-            frappe.throw(f"Action step '{self.step_name}' requires an 'Action Script'.")

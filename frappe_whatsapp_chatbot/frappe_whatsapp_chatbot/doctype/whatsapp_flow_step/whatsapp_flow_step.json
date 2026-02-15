@@ -43,7 +43,7 @@
    "fieldtype": "Text",
    "in_list_view": 1,
    "label": "Message",
-   "mandatory_depends_on": "eval:doc.input_type != 'Condition' && doc.input_type != 'Router' && doc.input_type != 'Jump' && doc.input_type != 'Action'"
+   "mandatory_depends_on": "eval:doc.input_type != 'Condition' && doc.input_type != 'Router' && doc.input_type != 'Jump'"
   },
   {
    "default": "Text",
@@ -73,7 +73,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Input Type",
-   "options": "None\nText\nNumber\nEmail\nPhone\nDate\nSelect\nButton\nImage\nFile\nWhatsApp Flow\nRouter\nCondition\nJump\nAction"
+   "options": "None\nText\nNumber\nEmail\nPhone\nDate\nSelect\nButton\nImage\nFile\nWhatsApp Flow\nRouter\nCondition\nJump"
   },
   {
    "depends_on": "eval:doc.input_type=='Select'",
