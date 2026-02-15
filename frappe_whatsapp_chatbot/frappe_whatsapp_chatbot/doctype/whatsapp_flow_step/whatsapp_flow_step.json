@@ -43,7 +43,7 @@
    "fieldtype": "Text",
    "in_list_view": 1,
    "label": "Message",
-   "mandatory_depends_on": "eval:doc.input_type!='Router'"
+   "mandatory_depends_on": "eval:doc.input_type != 'Condition' && doc.input_type != 'Router' && doc.input_type != 'Jump' && doc.input_type != 'Action'"
   },
   {
    "default": "Text",
@@ -73,7 +73,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Input Type",
-   "options": "None\nText\nNumber\nEmail\nPhone\nDate\nSelect\nButton\nImage\nFile\nWhatsApp Flow\nRouter\nCondition\nJump"
+   "options": "None\nText\nNumber\nEmail\nPhone\nDate\nSelect\nButton\nImage\nFile\nWhatsApp Flow\nRouter\nCondition\nJump\nAction"
   },
   {
    "depends_on": "eval:doc.input_type=='Select'",
@@ -185,11 +185,11 @@
    "fieldtype": "Link",
    "label": "Target Flow",
    "options": "WhatsApp Chatbot Flow"
-  }
+  },
  ],
  "istable": 1,
  "links": [],
- "modified": "2026-02-14 23:00:52.200190",
+ "modified": "2026-02-15 14:20:15.845971",
  "modified_by": "Administrator",
  "module": "Frappe WhatsApp Chatbot",
  "name": "WhatsApp Flow Step",
