@@ -10,6 +10,8 @@ class WhatsAppFlowStep(Document):
             self.validate_router_logic()
         elif self.input_type == "Jump":
             self.validate_jump_logic()
+        elif self.input_type == "Action":
+            self.validate_action_logic()
         else:
             if not self.message and self.input_type != "None":
                 frappe.throw(f"Message is required for visible step: {self.step_name}")

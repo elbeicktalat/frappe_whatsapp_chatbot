@@ -323,6 +323,15 @@ class FlowEngine:
 
         session_data = parse_json(session.session_data)
 
+        # ACTION NODE (Task Execution)
+        if step_doc.input_type == "Action":
+            # Run the script (e.g., Create Sales Order)
+            self.run_response_script(step_doc.response_script, session_data, session)
+            # Actions always save data and continue immediately
+            session.session_data = json.dumps(session_data)
+            session.save(ignore_permissions=True)
+            return self.silent_route(step_doc.next_step, all_steps, session)
+
         # JUMP LOGIC (Start Another Flow)
         if step_doc.input_type == "Jump" and step_doc.target_flow:
             # Switch session to new flow
