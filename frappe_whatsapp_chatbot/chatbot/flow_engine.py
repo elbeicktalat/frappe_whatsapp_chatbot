@@ -56,7 +56,7 @@ class FlowEngine:
             frappe.log_error(f"FlowEngine check_flow_trigger error: {str(e)}")
             return None
 
-    def start_flow(self, flow_name):
+    def start_flow(self, flow_name, external_data=None):
         """Start a new conversation flow."""
         try:
             flow = frappe.get_doc("WhatsApp Chatbot Flow", flow_name)
@@ -68,6 +68,10 @@ class FlowEngine:
             # Get first step
             first_step = sorted(flow.steps, key=lambda x: x.idx)[0]
 
+            # Prepare initial session data
+            # Merge external_data if provided, else empty dict
+            initial_data = external_data if isinstance(external_data, dict) else {}
+
             # Create session
             session = frappe.get_doc({
                 "doctype": "WhatsApp Chatbot Session",
@@ -76,7 +80,7 @@ class FlowEngine:
                 "status": "Active",
                 "current_flow": flow_name,
                 "current_step": first_step.step_name,
-                "session_data": json.dumps({}),
+                "session_data": json.dumps(initial_data),
                 "started_at": datetime.now(),
                 "last_activity": datetime.now()
             })
