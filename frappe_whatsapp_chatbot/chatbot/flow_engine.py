@@ -69,7 +69,6 @@ class FlowEngine:
             first_step = sorted(flow.steps, key=lambda x: x.idx)[0]
 
             # Prepare initial session data
-            # Merge external_data if provided, else empty dict
             initial_data = external_data if isinstance(external_data, dict) else {}
 
             # Create session
@@ -87,29 +86,18 @@ class FlowEngine:
             session.insert(ignore_permissions=True)
             frappe.db.commit()
 
-            # Build and return initial message
-            if flow.initial_message_type == "Template" and flow.initial_template:
-                return {
-                    "use_template": 1,
-                    "template": flow.initial_template,
-                    "message_type": "Template"
-                }
-
-            # Combine initial message with first step message
-            messages = []
+            # 1. Handle Flow-level Initial Message (If exists, send as Bubble #1)
             if flow.initial_message:
-                messages.append(flow.initial_message)
+                # We use the new helper to send this bubble immediately
+                self.send_and_log(flow.initial_message, session, "Flow Welcome")
 
-            step_msg = self.build_step_message(first_step, session)
-            if isinstance(step_msg, str):
-                messages.append(step_msg)
-                return "\n\n".join(messages) if messages else step_msg
-            else:
-                # Step returns a complex message (buttons, template)
-                if messages:
-                    # Send initial message first, then step message
-                    return messages[0]  # We'll handle multi-message later
-                return step_msg
+            # 2. Check if the first step is an 'Informative' (Send & Move On) type
+            if first_step.input_type in ["Send Message", "Condition", "Router", "Jump"]:
+                # This triggers the "Silent Chain" (Bubble #2, #3, etc.)
+                return self.silent_route(first_step.step_name, flow.steps, session)
+
+            # 3. If first step is a standard Input (Text/Button), return it normally
+            return self.build_step_message(first_step, session)
 
         except Exception as e:
             frappe.log_error(f"FlowEngine start_flow error: {str(e)}")
@@ -204,12 +192,19 @@ class FlowEngine:
             session.save(ignore_permissions=True)
             frappe.db.commit()
 
-            # Build and return next step message
+            # 1. Check if the NEXT step is an auto-run type
+            if next_step.input_type in ["Send Message", "Condition", "Router", "Jump"]:
+                # Hand over to silent_route to send the bubble and move to the next one
+                return self.silent_route(next_step.step_name, flow.steps, session)
+
+            # 2. Otherwise, it's a standard Input step (Text, Button, Image, etc.)
+            # Build the message and stop here to wait for user input
             response = self.build_step_message(next_step, session)
 
-            # Log outgoing message
+            # Log outgoing message in history
             if isinstance(response, str):
                 session.add_message("Outgoing", response, next_step.step_name)
+
             session.save(ignore_permissions=True)
             frappe.db.commit()
 
@@ -311,12 +306,51 @@ class FlowEngine:
         # Start processing from the new flow's first step
         return self.silent_route(first_step.step_name, new_flow.steps, session)
 
+    def send_and_log(self, response, session, step_name):
+        """
+        Standardized delivery for 'Send & Move On' logic.
+        Sends the message and records it in the session history.
+        """
+        if not response:
+            return
+
+        # 1. Determine the log text (handles strings or complex dicts)
+        log_text = response if isinstance(response, str) else response.get("message")
+
+        # 2. Log in the Chatbot Session child table
+        # This ensures the stock warnings/item codes are visible in the session log
+        session.add_message("Outgoing", log_text, step_name)
+        session.save(ignore_permissions=True)
+
+        # 3. Create the WhatsApp Message for Meta delivery
+        msg_doc = frappe.get_doc({
+            "doctype": "WhatsApp Message",
+            "to": self.phone_number,
+            "type": "Outgoing",
+            "whatsapp_account": self.account,
+            "message": log_text,
+            "content_type": "text"
+        })
+
+        # If the script generates buttons/templates, update the content type
+        if isinstance(response, dict):
+            if response.get("content_type") == "interactive":
+                msg_doc.content_type = "interactive"
+                msg_doc.interactive_buttons = response.get("buttons")
+            elif response.get("message_type") == "Template":
+                msg_doc.message_type = "Template"
+                msg_doc.template = response.get("template")
+
+        msg_doc.insert(ignore_permissions=True)
+        frappe.db.commit()
+
     def silent_route(self, step_name, all_steps, session):
         """
         Background handler.
         - Condition: Binary True/False split.
         - Router: Multi-path string matching.
         - Jump: Transition to a different flow entirely.
+        - Send Message: Send a message and immediately route to the next step without waiting for user input.
         """
         # 1. Find the step document in the current context
         step_doc = next((s for s in all_steps if s.step_name == step_name), None)
@@ -325,9 +359,26 @@ class FlowEngine:
         if not step_doc:
             return None
 
-        session_data = parse_json(session.session_data)
+        # --- SEND MESSAGE LOGIC ---
+        if step_doc.input_type == "Send Message":
+            # 1. Build and send the bubble
+            msg = self.build_step_message(step_doc, session)
+            self.send_and_log(msg, session, step_doc.step_name)
 
-        # JUMP LOGIC (Start Another Flow)
+            # 2. Try to find the next step
+            next_step = self.get_next_step(step_doc, all_steps, None, None, session)
+
+            if next_step:
+                # Update session to the next step and continue the chain
+                session.current_step = next_step.step_name
+                session.save(ignore_permissions=True)
+                return self.silent_route(next_step.step_name, all_steps, session)
+            else:
+                # --- CRITICAL FIX: If there is no next step, COMPLETE the flow ---
+                flow = frappe.get_doc("WhatsApp Chatbot Flow", session.current_flow)
+                return self.complete_flow(session, flow)
+
+        # --- JUMP LOGIC ---
         if step_doc.input_type == "Jump" and step_doc.target_flow:
             # Switch session to new flow
             session.current_flow = step_doc.target_flow
@@ -339,20 +390,16 @@ class FlowEngine:
             # Jumps always start at the first step (lowest index) of the new flow
             first_step = sorted(new_flow.steps, key=lambda x: x.idx)[0]
             session.current_step = first_step.step_name
-            session.save()
+            session.save(ignore_permissions=True)
+            frappe.db.commit()
 
             # Immediately process the first step of the new flow
             return self.silent_route(first_step.step_name, new_flow.steps, session)
 
         # CONDITION & ROUTER LOGIC
         if step_doc.input_type in ["Condition", "Router"]:
-            # Run script - expects 'response' variable to be set
-            logic_result = self.run_response_script(
-                step_doc.response_script,
-                session_data,
-                session
-            )
-
+            session_data = parse_json(session.session_data)
+            logic_result = self.run_response_script(step_doc.response_script, session_data, session)
             next_path = None
 
             if step_doc.input_type == "Condition":
@@ -362,17 +409,17 @@ class FlowEngine:
             elif step_doc.input_type == "Router":
                 # Multi-path: Match logic_result string to conditional_next keys
                 mapping = parse_json(step_doc.conditional_next, {})
-                next_path = mapping.get(str(logic_result).lower())
+                next_path = mapping.get(str(logic_result).lower()) or mapping.get("default") or step_doc.else_next_step
 
-                # Fallback to 'default' key or 'else_next_step' field
-                if not next_path:
-                    next_path = mapping.get("default") or step_doc.else_next_step
-
-            if not next_path:
-                return None
-
-            # Process the chosen path immediately
-            return self.silent_route(next_path, all_steps, session)
+            if next_path:
+                # Update session state for the logic branch
+                session.current_step = next_path
+                session.save(ignore_permissions=True)
+                frappe.db.commit()
+                return self.silent_route(next_path, all_steps, session)
+            else:
+                flow = frappe.get_doc("WhatsApp Chatbot Flow", session.current_flow)
+                return self.complete_flow(session, flow)
 
         # If it's a Message, Button, or any other input type, return the object itself
         return step_doc
@@ -402,10 +449,9 @@ class FlowEngine:
                     next_step_name = sorted_steps[i + 1].step_name
                     break
 
-        if next_step_name and session:
-            # We call silent_route which processes Actions/Jumps
-            # and returns the final visible Step Object.
-            return self.silent_route(next_step_name, all_steps, session)
+        if next_step_name:
+            # Simply return the object found in the current flow's steps
+            return next((s for s in all_steps if s.step_name == next_step_name), None)
 
         return None
 
