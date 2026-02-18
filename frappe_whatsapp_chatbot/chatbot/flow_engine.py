@@ -91,13 +91,19 @@ class FlowEngine:
                 # We use the new helper to send this bubble immediately
                 self.send_and_log(flow.initial_message, session, "Flow Welcome")
 
-            # 2. Check if the first step is an 'Informative' (Send & Move On) type
+            # 2. Check if the first step is an auto-progression type
             if first_step.input_type in ["Send Message", "Condition", "Router", "Jump"]:
-                # This triggers the "Silent Chain" (Bubble #2, #3, etc.)
-                return self.silent_route(first_step.step_name, flow.steps, session)
+                # We "await" the result of the chain.
+                # If the chain hits a Button step, silent_route returns that Step Object.
+                result = self.silent_route(first_step.step_name, flow.steps, session)
 
-            # 3. If first step is a standard Input (Text/Button), return it normally
-            return self.build_step_message(first_step, session)
+                # If silent_route returned a Step Object (like a Button step),
+                # we must build and return that message now.
+                if hasattr(result, "step_name"):
+                    return self.build_step_message(result, session)
+
+                # If it returned a string (the completion message), return that.
+                return result
 
         except Exception as e:
             frappe.log_error(f"FlowEngine start_flow error: {str(e)}")
@@ -194,8 +200,15 @@ class FlowEngine:
 
             # 1. Check if the NEXT step is an auto-run type
             if next_step.input_type in ["Send Message", "Condition", "Router", "Jump"]:
-                # Hand over to silent_route to send the bubble and move to the next one
-                return self.silent_route(next_step.step_name, flow.steps, session)
+                # Hand over to silent_route. It will send all Send Messages in between.
+                result = self.silent_route(next_step.step_name, flow.steps, session)
+
+                # If the chain eventually landed on a Button/Text step:
+                if hasattr(result, "step_name"):
+                    return self.build_step_message(result, session)
+
+                # If the chain finished the flow:
+                return result
 
             # 2. Otherwise, it's a standard Input step (Text, Button, Image, etc.)
             # Build the message and stop here to wait for user input
