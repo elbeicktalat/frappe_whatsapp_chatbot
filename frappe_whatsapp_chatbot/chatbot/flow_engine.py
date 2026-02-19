@@ -86,24 +86,23 @@ class FlowEngine:
             session.insert(ignore_permissions=True)
             frappe.db.commit()
 
-            # 1. Handle Flow-level Initial Message (If exists, send as Bubble #1)
+            # 1. Handle Flow-level Initial Message
             if flow.initial_message:
                 # We use the new helper to send this bubble immediately
                 self.send_and_log(flow.initial_message, session, "Flow Welcome")
 
-            # 2. Check if the first step is an auto-progression type
+            # 2. Process the chain
+            result = first_step
             if first_step.input_type in ["Send Message", "Condition", "Router", "Jump"]:
-                # We "await" the result of the chain.
-                # If the chain hits a Button step, silent_route returns that Step Object.
                 result = self.silent_route(first_step.step_name, flow.steps, session)
 
-                # If silent_route returned a Step Object (like a Button step),
-                # we must build and return that message now.
-                if hasattr(result, "step_name"):
-                    return self.build_step_message(result, session)
+            # If the result is a Step Object (Interactive like Buttons/Text), send it now.
+            if hasattr(result, "step_name"):
+                final_msg = self.build_step_message(result, session)
+                self.send_and_log(final_msg, session, result.step_name)
+                return final_msg
 
-                # If it returned a string (the completion message), return that.
-                return result
+            return result
 
         except Exception as e:
             frappe.log_error(f"FlowEngine start_flow error: {str(e)}")
