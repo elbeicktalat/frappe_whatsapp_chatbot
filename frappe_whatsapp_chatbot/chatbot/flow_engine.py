@@ -100,7 +100,7 @@ class FlowEngine:
             if hasattr(result, "step_name"):
                 final_msg = self.build_step_message(result, session)
                 self.send_and_log(final_msg, session, result.step_name)
-                return final_msg
+                return None
 
             return result
 
