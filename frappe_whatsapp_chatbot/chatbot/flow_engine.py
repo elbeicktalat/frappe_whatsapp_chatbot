@@ -348,7 +348,14 @@ class FlowEngine:
         if isinstance(response, dict):
             if response.get("content_type") == "interactive":
                 msg_doc.content_type = "interactive"
-                msg_doc.interactive_buttons = response.get("buttons")
+                buttons = response.get("buttons")
+                if isinstance(buttons, str):
+                    try:
+                        msg_doc.interactive_buttons = json.loads(buttons)
+                    except Exception:
+                        msg_doc.interactive_buttons = []
+                else:
+                    msg_doc.interactive_buttons = buttons
             elif response.get("message_type") == "Template":
                 msg_doc.message_type = "Template"
                 msg_doc.template = response.get("template")
