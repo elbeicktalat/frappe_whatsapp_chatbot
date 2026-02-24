@@ -5,6 +5,24 @@ from datetime import datetime
 # Flag to prevent recursive processing
 _processing_messages = set()
 
+
+def _chatbot_error_log(title, message, reference_doctype=None, reference_name=None):
+    """Create an Error Log record explicitly (easy to filter in Desk > Error Log)."""
+    try:
+        err = frappe.get_doc({
+            "doctype": "Error Log",
+            "method": title,
+            "error": str(message),
+            "reference_doctype": reference_doctype,
+            "reference_name": reference_name,
+        })
+        err.insert(ignore_permissions=True)
+        frappe.db.commit()
+    except Exception:
+        # Never break processing due to logging failures
+        pass
+
+
 class ChatbotProcessor:
     """Main processor for incoming WhatsApp messages."""
 
@@ -441,7 +459,6 @@ def process_incoming_message(doc, method=None):
         if not doc_name or doc_name in _processing_messages:
             return
 
-        # Only process text, button, and flow content types
         content_type = getattr(doc, "content_type", None)
         if content_type not in ["text", "button", "flow", "image", "document"]:
             return
@@ -453,7 +470,13 @@ def process_incoming_message(doc, method=None):
             enabled = frappe.db.get_single_value("WhatsApp Chatbot", "enabled")
             if not enabled:
                 return
-        except Exception:
+        except Exception as e:
+            _chatbot_error_log(
+                "WhatsApp Chatbot: enabled check failed",
+                e,
+                reference_doctype="WhatsApp Message",
+                reference_name=doc_name
+            )
             return
 
         if content_type in ["text", "button", "flow"]:
@@ -465,7 +488,7 @@ def process_incoming_message(doc, method=None):
                 "content_type": content_type or "text",
                 "whatsapp_account": getattr(doc, "whatsapp_account", None),
                 "type": "Incoming",
-                "flow_response": getattr(doc, "flow_response", None)
+                "flow_response": getattr(doc, "flow_response", None),
             }
 
             # Mark as being processed to prevent loops
@@ -480,57 +503,93 @@ def process_incoming_message(doc, method=None):
                 _processing_messages.discard(doc_name)
 
         elif content_type in ["image", "document"]:
-            frappe.enqueue(
-                'frappe_whatsapp_chatbot.chatbot.processor.background_media_processor',
-                doc_name=doc_name,
-                queue='default',
-                at_front=True
-            )
+            try:
+                _chatbot_error_log(
+                    "WhatsApp Chatbot: media message received",
+                    f"Enqueue background_media_processor. content_type={content_type}",
+                    reference_doctype="WhatsApp Message",
+                    reference_name=doc_name
+                )
+                frappe.enqueue(
+                    "frappe_whatsapp_chatbot.chatbot.processor.background_media_processor",
+                    doc_name=doc_name,
+                    queue="default",
+                    at_front=True
+                )
+            except Exception as e:
+                _chatbot_error_log(
+                    "WhatsApp Chatbot: enqueue failed (fallback to sync)",
+                    e,
+                    reference_doctype="WhatsApp Message",
+                    reference_name=doc_name
+                )
+                # If background jobs are not available/misconfigured, fall back to sync processing
+                background_media_processor(doc_name)
 
     except Exception as e:
-        # Log error but NEVER re-raise - we must not break the incoming message save
         try:
-            frappe.log_error(
-                f"process_incoming_message error: {str(e)}",
-                "WhatsApp Chatbot Error"
+            _chatbot_error_log(
+                "WhatsApp Chatbot: process_incoming_message crashed",
+                e,
+                reference_doctype="WhatsApp Message",
+                reference_name=getattr(doc, "name", None)
             )
         except Exception:
-            pass  # Even logging failed, just continue
+            pass
 
 
 def background_media_processor(doc_name):
     """Wait for attachment link and process media message."""
     import time
 
-    # 1. Fetch static data ONCE
-    # We get these now so we don't have to keep asking the DB for them in the loop
-    msg_data = frappe.db.get_value(
-        "WhatsApp Message",
-        doc_name,
-        ["from", "from_", "content_type", "whatsapp_account", "flow_response"],
-        as_dict=1
-    )
+    try:
+        msg_data = frappe.db.get_value(
+            "WhatsApp Message",
+            doc_name,
+            ["from", "from_", "content_type", "whatsapp_account", "flow_response"],
+            as_dict=1
+        )
 
-    if not msg_data:
-        return
+        if not msg_data:
+            _chatbot_error_log(
+                "WhatsApp Chatbot: media processor - message not found",
+                f"doc_name={doc_name}",
+                reference_doctype="WhatsApp Message",
+                reference_name=doc_name
+            )
+            return
 
-    # 2. Optimized Polling Loop
-    media_url = None
-    for _ in range(4):
-        time.sleep(2)  # Wait a bit for the downloader to update the record
-
-        # Clear transaction cache to see updates from the downloader
-        frappe.db.rollback()
-
-        # Only fetch the 'attach' field - much lighter than fetching the whole row
-        media_url = frappe.db.get_value("WhatsApp Message", doc_name, "attach")
-
-        if media_url:
-            break
-
-    if media_url:
-        # Extract message data
         sender = (msg_data.get("from") or msg_data.get("from_"))
+        _chatbot_error_log(
+            "WhatsApp Chatbot: media processor started",
+            f"sender={sender}, content_type={msg_data.get('content_type')}, account={msg_data.get('whatsapp_account')}",
+            reference_doctype="WhatsApp Message",
+            reference_name=doc_name
+        )
+
+        media_url = None
+        for attempt in range(15):
+            time.sleep(2)
+            frappe.db.rollback()
+            media_url = frappe.db.get_value("WhatsApp Message", doc_name, "attach")
+            if media_url:
+                _chatbot_error_log(
+                    "WhatsApp Chatbot: attach found",
+                    f"attempt={attempt + 1}, attach={media_url}",
+                    reference_doctype="WhatsApp Message",
+                    reference_name=doc_name
+                )
+                break
+
+        if not media_url:
+            _chatbot_error_log(
+                "WhatsApp Chatbot: media timeout",
+                "attach field still empty after waiting",
+                reference_doctype="WhatsApp Message",
+                reference_name=doc_name
+            )
+            return
+
         message_data = {
             "name": doc_name,
             "from": sender,
@@ -538,21 +597,38 @@ def background_media_processor(doc_name):
             "content_type": msg_data.get("content_type") or "",
             "whatsapp_account": msg_data.get("whatsapp_account"),
             "type": "Incoming",
-            "flow_response": msg_data.get("flow_response")
+            "flow_response": msg_data.get("flow_response"),
         }
 
-        # Mark as being processed to prevent loops
-        _processing_messages.add(doc_name)
+        if not sender:
+            _chatbot_error_log(
+                "WhatsApp Chatbot: media processor - missing sender",
+                f"message_data.from is empty; cannot continue session. message_data={message_data}",
+                reference_doctype="WhatsApp Message",
+                reference_name=doc_name
+            )
+            return
 
+        _processing_messages.add(doc_name)
         try:
-            # Process synchronously - this is fast enough and more reliable
             processor = ChatbotProcessor(message_data)
             processor.process()
+            _chatbot_error_log(
+                "WhatsApp Chatbot: media processed",
+                "ChatbotProcessor.process() finished",
+                reference_doctype="WhatsApp Message",
+                reference_name=doc_name
+            )
         finally:
-            # Clean up processing flag
             _processing_messages.discard(doc_name)
-    else:
-        frappe.log_error(f"Chatbot Timeout: No media found for {doc_name}", "WhatsApp Chatbot Warning")
+
+    except Exception as e:
+        _chatbot_error_log(
+            "WhatsApp Chatbot: background_media_processor crashed",
+            e,
+            reference_doctype="WhatsApp Message",
+            reference_name=doc_name
+        )
 
 
 def run_processor(message_data):
