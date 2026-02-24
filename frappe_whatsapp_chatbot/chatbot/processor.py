@@ -5,7 +5,6 @@ from datetime import datetime
 # Flag to prevent recursive processing
 _processing_messages = set()
 
-
 class ChatbotProcessor:
     """Main processor for incoming WhatsApp messages."""
 
@@ -508,7 +507,7 @@ def background_media_processor(doc_name):
     msg_data = frappe.db.get_value(
         "WhatsApp Message",
         doc_name,
-        ["from", "content_type", "whatsapp_account", "flow_response"],
+        ["from", "from_", "content_type", "whatsapp_account", "flow_response"],
         as_dict=1
     )
 
@@ -531,14 +530,15 @@ def background_media_processor(doc_name):
 
     if media_url:
         # Extract message data
+        sender = (msg_data.get("from") or msg_data.get("from_"))
         message_data = {
             "name": doc_name,
-            "from": getattr(msg_data, "from", None) or getattr(msg_data, "from_", None),
+            "from": sender,
             "message": media_url,
-            "content_type": getattr(msg_data, "content_type", ""),
-            "whatsapp_account": getattr(msg_data, "whatsapp_account", None),
+            "content_type": msg_data.get("content_type") or "",
+            "whatsapp_account": msg_data.get("whatsapp_account"),
             "type": "Incoming",
-            "flow_response": getattr(msg_data, "flow_response", None)
+            "flow_response": msg_data.get("flow_response")
         }
 
         # Mark as being processed to prevent loops
