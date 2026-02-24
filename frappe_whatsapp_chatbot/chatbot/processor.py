@@ -546,7 +546,7 @@ def background_media_processor(doc_name):
         msg_data = frappe.db.get_value(
             "WhatsApp Message",
             doc_name,
-            ["from", "from_", "content_type", "whatsapp_account", "flow_response"],
+            ["from", "content_type", "whatsapp_account", "flow_response"],
             as_dict=1
         )
 
